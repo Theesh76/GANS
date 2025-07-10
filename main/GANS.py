@@ -22,7 +22,6 @@ class Load_Custom_Dataset(Dataset):
         pil_image = Image.fromarray(rgb_image) 
         if self.transform:
             transformed_img = self.transform(pil_image)
-        print(transformed_img.shape)
         return transformed_img
 
 # ================================
@@ -80,8 +79,12 @@ batch_size = 8
 noise_dim = 100
 epochs = 100
 lr = 0.0002
+best_loss_G = float('inf')
+patience = 50
+epochs_no_improve = 0
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-GANS_result_img_save_path = 'C:/Users/sathi/Research/GANS_Result/'
+GANS_result_save_path = 'C:/Users/sathi/Research/GANS_Result/'
 data_path = np.array(glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.png") + glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.jpg"))  # <-- SET YOUR CUSTOM DATA PATH HERE
 
 # ================================
@@ -112,6 +115,13 @@ optimizer_D = optim.Adam(D.parameters(), lr=lr, betas=(0.5, 0.999))
 # TRAINING LOOP
 # ================================
 for epoch in range(epochs):
+    G.train()
+    D.train()
+    
+    loss_G_epoch = 0.0
+    loss_D_epoch = 0.0
+    num_batches = 0
+
     for real_imgs in dataloader:
         real_imgs = real_imgs.to(device)
         batch_size = real_imgs.size(0)
@@ -135,6 +145,7 @@ for epoch in range(epochs):
         optimizer_D.step()
 
         # === Train Generator ===
+        fake_imgs = G(noise)
         out_fake = D(fake_imgs)
         loss_G = criterion(out_fake, real_labels)
 
@@ -142,15 +153,44 @@ for epoch in range(epochs):
         loss_G.backward()
         optimizer_G.step()
 
-    print(f"Epoch [{epoch+1}/{epochs}]  Loss_D: {loss_D.item():.4f}, Loss_G: {loss_G.item():.4f}")
-    # Save generated samples
-    if (epoch) % 100 == 0:
+        # Accumulate losses
+        loss_G_epoch += loss_G.item()
+        loss_D_epoch += loss_D.item()
+        num_batches += 1
+
+    # Calculate average loss for the epoch
+    avg_loss_G = loss_G_epoch / num_batches
+    avg_loss_D = loss_D_epoch / num_batches
+
+    # === Save model if Generator improved ===
+    if avg_loss_G < best_loss_G:
+        best_loss_G = avg_loss_G
+        epochs_no_improve = 0
+
+        torch.save({
+            'epoch': epoch + 1,
+            'generator_state_dict': G.state_dict(),
+            'discriminator_state_dict': D.state_dict(),
+            'optimizer_G_state_dict': optimizer_G.state_dict(),
+            'optimizer_D_state_dict': optimizer_D.state_dict(),
+            'loss_G': best_loss_G
+        }, os.path.join(GANS_result_save_path, "best_model" + str(epoch) + ".pth"))
+
+        print(f"✅ Saved improved model at epoch {epoch+1}, avg_loss_G: {best_loss_G:.4f}")
+
+        # Save sample image
         with torch.no_grad():
             test_z = torch.randn(16, noise_dim, device=device)
             test_imgs = G(test_z)
             grid = utils.make_grid(test_imgs, nrow=4, normalize=True)
+            img_path = os.path.join(GANS_result_save_path, f"epoch_{epoch+1}.png")
+            utils.save_image(grid, img_path)
+            print(f"🖼️ Saved sample image to {img_path}")
 
-            # Save image grid
-            save_path = os.path.join(GANS_result_img_save_path, f"epoch_{epoch+1}.png")
-            utils.save_image(grid, save_path)
-            print(f"Saved sample image at epoch {epoch+1} to {save_path}")
+    else:
+        epochs_no_improve += 1
+        if epochs_no_improve >= patience:
+            print("⛔ Early stopping triggered. Training stopped.")
+            break
+
+    print(f"📘 Epoch [{epoch+1}/{epochs}]  Avg Loss_D: {avg_loss_D:.4f}, Avg Loss_G: {avg_loss_G:.4f}")
