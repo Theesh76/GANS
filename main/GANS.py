@@ -116,4 +116,38 @@ for epoch in range(epochs):
         batch_size = real_imgs.size(0)
 
         # === Train Discriminator ===
-        noise = torch.rand
+        noise = torch.randn(batch_size, noise_dim, device=device)
+        fake_imgs = G(noise)
+
+        real_labels = torch.ones(batch_size, 1, device=device)
+        fake_labels = torch.zeros(batch_size, 1, device=device)
+
+        out_real = D(real_imgs)
+        out_fake = D(fake_imgs.detach())
+
+        loss_real = criterion(out_real, real_labels)
+        loss_fake = criterion(out_fake, fake_labels)
+        loss_D = (loss_real + loss_fake) / 2
+
+        optimizer_D.zero_grad()
+        loss_D.backward()
+        optimizer_D.step()
+
+        # === Train Generator ===
+        out_fake = D(fake_imgs)
+        loss_G = criterion(out_fake, real_labels)
+
+        optimizer_G.zero_grad()
+        loss_G.backward()
+        optimizer_G.step()
+
+    print(f"Epoch [{epoch+1}/{epochs}]  Loss_D: {loss_D.item():.4f}, Loss_G: {loss_G.item():.4f}")
+    # Save generated samples
+    with torch.no_grad():
+        test_z = torch.randn(16, noise_dim, device=device)
+        test_imgs = G(test_z)
+        grid = utils.make_grid(test_imgs, nrow=4, normalize=True)
+        plt.imshow(grid.permute(1, 2, 0).cpu())
+        plt.axis('off')
+        plt.title(f'Epoch {epoch+1}')
+        plt.show()
