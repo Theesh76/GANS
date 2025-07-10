@@ -75,19 +75,20 @@ class Discriminator(nn.Module):
 # ================================
 # CONFIG
 # ================================
-image_size = 256
+image_size = 64
 batch_size = 8
 noise_dim = 100
 epochs = 100
 lr = 0.0002
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+GANS_result_img_save_path = 'C:/Users/sathi/Research/GANS_Result/'
 data_path = np.array(glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.png") + glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.jpg"))  # <-- SET YOUR CUSTOM DATA PATH HERE
 
 # ================================
 # TRANSFORM + DATALOADER
 # ================================
 transform = transforms.Compose([
-    transforms.Resize((256,256)),
+    transforms.Resize((image_size,image_size)),
     transforms.ToTensor(),
     transforms.Normalize([0.5], [0.5])  # to [-1, 1]
 ])
@@ -111,7 +112,7 @@ optimizer_D = optim.Adam(D.parameters(), lr=lr, betas=(0.5, 0.999))
 # TRAINING LOOP
 # ================================
 for epoch in range(epochs):
-    for real_imgs, _ in dataloader:
+    for real_imgs in dataloader:
         real_imgs = real_imgs.to(device)
         batch_size = real_imgs.size(0)
 
@@ -143,11 +144,13 @@ for epoch in range(epochs):
 
     print(f"Epoch [{epoch+1}/{epochs}]  Loss_D: {loss_D.item():.4f}, Loss_G: {loss_G.item():.4f}")
     # Save generated samples
-    with torch.no_grad():
-        test_z = torch.randn(16, noise_dim, device=device)
-        test_imgs = G(test_z)
-        grid = utils.make_grid(test_imgs, nrow=4, normalize=True)
-        plt.imshow(grid.permute(1, 2, 0).cpu())
-        plt.axis('off')
-        plt.title(f'Epoch {epoch+1}')
-        plt.show()
+    if (epoch) % 100 == 0:
+        with torch.no_grad():
+            test_z = torch.randn(16, noise_dim, device=device)
+            test_imgs = G(test_z)
+            grid = utils.make_grid(test_imgs, nrow=4, normalize=True)
+
+            # Save image grid
+            save_path = os.path.join(GANS_result_img_save_path, f"epoch_{epoch+1}.png")
+            utils.save_image(grid, save_path)
+            print(f"Saved sample image at epoch {epoch+1} to {save_path}")
