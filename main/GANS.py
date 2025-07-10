@@ -2,12 +2,27 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms, utils
 from PIL import Image
 import matplotlib.pyplot as plt
 import glob as glob
+import cv2
 
+
+class Load_Custom_Dataset(Dataset):
+    def __init__(self, image_file_names, transform):
+        self.image_file_names = image_file_names
+        self.transform = transform
+    def __len__(self):
+        return len(self.image_file_names)
+    def __getitem__(self, index):
+        bgr_image = cv2.imread(self.image_file_names(index))
+        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        if self.transform:
+            transformed_img = self.transform(rgb_image)
+        return transformed_img
+    
 # ================================
 # CONFIG
 # ================================
@@ -18,7 +33,7 @@ epochs = 100
 lr = 0.0002
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 data_path = glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.png") + glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.jpg")  # <-- SET YOUR CUSTOM DATA PATH HERE
-print(len(data_path))
+
 # ================================
 # TRANSFORM + DATALOADER
 # ================================
@@ -29,7 +44,7 @@ transform = transforms.Compose([
     transforms.Normalize([0.5], [0.5])  # to [-1, 1]
 ])
 
-dataset = datasets.ImageFolder(root=data_path, transform=transform)
+dataset = Load_Custom_Dataset(folder_path=data_path, transform=transform)
 dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 # ================================
