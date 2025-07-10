@@ -8,7 +8,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import glob as glob
 import cv2
-
+import numpy as np
 
 class Load_Custom_Dataset(Dataset):
     def __init__(self, image_file_names, transform):
@@ -17,35 +17,13 @@ class Load_Custom_Dataset(Dataset):
     def __len__(self):
         return len(self.image_file_names)
     def __getitem__(self, index):
-        bgr_image = cv2.imread(self.image_file_names(index))
+        bgr_image = cv2.imread(self.image_file_names[index])
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        pil_image = Image.fromarray(rgb_image) 
         if self.transform:
-            transformed_img = self.transform(rgb_image)
+            transformed_img = self.transform(pil_image)
+        print(transformed_img.shape)
         return transformed_img
-    
-# ================================
-# CONFIG
-# ================================
-image_size = 64
-batch_size = 64
-noise_dim = 100
-epochs = 100
-lr = 0.0002
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-data_path = glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.png") + glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.jpg")  # <-- SET YOUR CUSTOM DATA PATH HERE
-
-# ================================
-# TRANSFORM + DATALOADER
-# ================================
-transform = transforms.Compose([
-    transforms.Resize(image_size),
-    transforms.CenterCrop(image_size),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5], [0.5])  # to [-1, 1]
-])
-
-dataset = Load_Custom_Dataset(folder_path=data_path, transform=transform)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
 # ================================
 # GENERATOR
@@ -92,6 +70,32 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
+
+# ================================
+# CONFIG
+# ================================
+image_size = 256
+batch_size = 8
+noise_dim = 100
+epochs = 100
+lr = 0.0002
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+data_path = np.array(glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.png") + glob.glob("C:/Users/sathi/OneDrive/Desktop/Aadhan_8_picz/*.jpg"))  # <-- SET YOUR CUSTOM DATA PATH HERE
+
+# ================================
+# TRANSFORM + DATALOADER
+# ================================
+transform = transforms.Compose([
+    transforms.Resize((256,256)),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5], [0.5])  # to [-1, 1]
+])
+
+dataset = Load_Custom_Dataset(data_path, transform)
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+tensor_image = next(iter(dataloader))
+
 
 # ================================
 # INIT
